@@ -86,59 +86,16 @@ enum {
 #define TOUCH_BOOSTER_CHG_TIME	200
 #endif
 
-#ifdef SEC_TSP_FW_UPDATE
-
-#define WORD_SIZE		4
-
-#define ISC_PKT_SIZE			1029
-#define ISC_PKT_DATA_SIZE		1024
-#define ISC_PKT_HEADER_SIZE		3
-#define ISC_PKT_NUM			31
-
-#define ISC_ENTER_ISC_CMD		0x5F
-#define ISC_ENTER_ISC_DATA		0x01
-#define ISC_CMD				0xAE
-#define ISC_ENTER_UPDATE_DATA		0x55
-#define ISC_ENTER_UPDATE_DATA_LEN	9
-#define ISC_DATA_WRITE_SUB_CMD		0xF1
-#define ISC_EXIT_ISC_SUB_CMD		0x0F
-#define ISC_EXIT_ISC_SUB_CMD2		0xF0
-#define ISC_CHECK_STATUS_CMD		0xAF
-#define ISC_CONFIRM_CRC			0x03
-#define ISC_DEFAULT_CRC			0xFFFF
-
-#endif
-
-#ifdef SEC_TSP_FACTORY_TEST
-#define TX_NUM		26
-#define RX_NUM		14
-#define NODE_NUM	364 /* 26x14 */
-
-/* VSC(Vender Specific Command)  */
-#define MMS_VSC_CMD			0xB0	/* vendor specific command */
-#define MMS_VSC_MODE			0x1A	/* mode of vendor */
-
-#define MMS_VSC_CMD_ENTER		0X01
-#define MMS_VSC_CMD_CM_DELTA		0X02
-#define MMS_VSC_CMD_CM_ABS		0X03
-#define MMS_VSC_CMD_EXIT		0X05
-#define MMS_VSC_CMD_INTENSITY		0X04
-#define MMS_VSC_CMD_RAW			0X06
-#define MMS_VSC_CMD_REFER		0X07
-
-#define TSP_CMD_STR_LEN 32
-#define TSP_CMD_RESULT_STR_LEN 512
-#define TSP_CMD_PARAM_NUM 8
-#endif /* SEC_TSP_FACTORY_TEST */
-
-#if defined(CONFIG_MACH_STRETTO) || defined(CONFIG_MACH_SUPERIORLTE_SKT)
-#define ISC_DL_MODE 0
-#else
-#define ISC_DL_MODE 1
-#endif
-
-#if ISC_DL_MODE
 /* Default configuration of ISC mode */
+
+#define MFS_HEADER_		5
+#define MFS_DATA_		20480
+
+#define DATA_SIZE 1024
+#define CLENGTH 4
+
+#define PACKET_			(MFS_HEADER_ + MFS_DATA_)
+
 
 #define DEFAULT_SLAVE_ADDR	0x48
 
@@ -162,6 +119,12 @@ enum {
 #define ISC_ADDR_SECTION_PAGE_INFO	0xE5
 
 /* Config Update Commands */
+#define ISC_CMD_ISC_ADDR				0xD5
+#define ISC_CMD_ISC_STATUS_ADDR		0xD9
+#define ISC_STATUS_RET_MASS_ERASE_DONE			0X0C
+#define ISC_STATUS_RET_MASS_ERASE_MODE			0X08
+
+
 #define ISC_CMD_ENTER_ISC		0x5F
 #define ISC_CMD_ENTER_ISC_PARA1		0x01
 #define ISC_CMD_UPDATE_MODE		0xAE
@@ -252,6 +215,29 @@ static bool section_update_flag[SECTION_NUM];
 const struct firmware *fw_mbin[SECTION_NUM];
 
 static unsigned char g_wr_buf[1024 + 3 + 2];
+
+
+#ifdef SEC_TSP_FW_UPDATE
+
+#define WORD_SIZE		4
+
+#define ISC_PKT_SIZE			1029
+#define ISC_PKT_DATA_SIZE		1024
+#define ISC_PKT_HEADER_SIZE		3
+#define ISC_PKT_NUM			31
+
+#define ISC_ENTER_ISC_CMD		0x5F
+#define ISC_ENTER_ISC_DATA		0x01
+#define ISC_CMD				0xAE
+#define ISC_ENTER_UPDATE_DATA		0x55
+#define ISC_ENTER_UPDATE_DATA_LEN	9
+#define ISC_DATA_WRITE_SUB_CMD		0xF1
+#define ISC_EXIT_ISC_SUB_CMD		0x0F
+#define ISC_EXIT_ISC_SUB_CMD2		0xF0
+#define ISC_CHECK_STATUS_CMD		0xAF
+#define ISC_CONFIRM_CRC			0x03
+#define ISC_DEFAULT_CRC			0xFFFF
+
 #endif
 
 int touch_is_pressed;
@@ -364,7 +350,6 @@ static void get_cm_delta(void *device_data);
 static void get_intensity(void *device_data);
 static void get_x_num(void *device_data);
 static void get_y_num(void *device_data);
-static void run_reference_read(void *device_data);
 static void run_cm_abs_read(void *device_data);
 static void run_cm_delta_read(void *device_data);
 static void run_intensity_read(void *device_data);
@@ -388,7 +373,6 @@ struct tsp_cmd tsp_cmds[] = {
 	{TSP_CMD("get_cm_abs", get_cm_abs),},
 	{TSP_CMD("get_cm_delta", get_cm_delta),},
 	{TSP_CMD("get_intensity", get_intensity),},
-	{TSP_CMD("run_reference_read", run_reference_read),},
 	{TSP_CMD("run_cm_abs_read", run_cm_abs_read),},
 	{TSP_CMD("run_cm_delta_read", run_cm_delta_read),},
 	{TSP_CMD("run_intensity_read", run_intensity_read),},
@@ -1252,41 +1236,226 @@ static int mms_ts_finish_config(struct mms_ts_info *info)
 
 	dev_info(&client->dev,
 		 "Melfas MMS-series touch controller initialized\n");
-
 	return 0;
 
 err_req_irq:
 	return ret;
 }
 
+static int mms100_reset(struct mms_ts_info *info)
+{
+	info->pdata->vdd_on(0);
+	msleep(30);
+	info->pdata->vdd_on(1);
+	msleep(300);
+
+	return ISC_SUCCESS;
+}
+
+static int mms100_close_mbinary(void)
+{
+	int i;
+
+	for (i = 0; i < SECTION_NUM; i++) {
+		if (fw_mbin[i] != NULL)
+			release_firmware(fw_mbin[i]);
+	}
+	return ISC_SUCCESS;
+}
+
+int MFS_I2C_read(struct mms_ts_info *info,
+			unsigned char *_read_buf, int _length)
+{
+	return i2c_master_recv(info->client, _read_buf, _length) > \
+						0 ? ISC_SUCCESS : ISC_I2C_ERROR;
+}
+
+int MFS_I2C_read_with_addr(struct mms_ts_info *info, unsigned char *_read_buf,
+		unsigned char _addr, int _length)
+{
+	unsigned char write_buf[1];
+	write_buf[0] = _addr;
+	i2c_master_send(info->client, write_buf, 1);
+	return MFS_I2C_read(info, _read_buf, _length);
+}
+
+int MFS_I2C_write(struct mms_ts_info *info,
+				const unsigned char *_write_buf, int _length)
+{
+	return i2c_master_send(info->client, _write_buf, _length) > \
+						0 ? ISC_SUCCESS : ISC_I2C_ERROR;
+}
+
+int firmware_write(struct mms_ts_info *info, const unsigned char *_pBinary_Data)
+{
+	int i, k = 0;
+	unsigned char write_buffer[MFS_HEADER_ + DATA_SIZE];
+	unsigned short int start_addr = 0;
+
+	pr_info("<MELFAS> FIRMARE WRITING...\n");
+	pr_info("<MELFAS> ");
+	while (start_addr * CLENGTH < MFS_DATA_) {
+		write_buffer[0] = ISC_CMD_ISC_ADDR;
+		write_buffer[1] = (u8) ((start_addr) & 0X00FF);
+		write_buffer[2] = (u8) ((start_addr >> 8) & 0X00FF);
+		write_buffer[3] = 0X00;
+		write_buffer[4] = 0X00;
+
+		for (i = 0; i < DATA_SIZE; i++)
+			write_buffer[MFS_HEADER_ + i] = _pBinary_Data
+						[i + start_addr * CLENGTH];
+
+		mdelay(5);
+		if (MFS_I2C_write(info, write_buffer, MFS_HEADER_ + DATA_SIZE))
+			return ISC_I2C_ERROR;
+		pr_info("%dKB ", k);
+
+		mdelay(5);
+		k++;
+		start_addr = DATA_SIZE * k / CLENGTH;
+	}
+
+	return ISC_SUCCESS;
+}
+
+int firmware_verify(struct mms_ts_info *info,
+				const unsigned char *_pBinary_Data)
+{
+
+	int i, k = 0;
+	unsigned char write_buffer[MFS_HEADER_], read_buffer[256];
+	unsigned short int start_addr = 0;
+
+	pr_info("<MELFAS> FIRMARE VERIFY...\n");
+	pr_info("<MELFAS> ");
+	while (start_addr * CLENGTH < MFS_DATA_) {
+		write_buffer[0] = ISC_CMD_ISC_ADDR;
+		write_buffer[1] = (u8) ((start_addr) & 0X00FF);
+		write_buffer[2] = 0x40 + (u8) ((start_addr >> 8) & 0X00FF);
+		write_buffer[3] = 0X00;
+		write_buffer[4] = 0X00;
+
+		if (MFS_I2C_write(info, write_buffer, MFS_HEADER_))
+			return ISC_I2C_ERROR;
+
+		mdelay(5);
+		if (MFS_I2C_read(info, read_buffer, 256))
+			return ISC_I2C_ERROR;
+
+		for (i = 0; i < 256; i++)
+			if (read_buffer[i] != _pBinary_Data[i + start_addr * \
+				CLENGTH]){
+				pr_info("<MELFAS> VERIFY Failed\n");
+				pr_info("<MELFAS> original : 0x%2x",
+					_pBinary_Data[i + start_addr * \
+					CLENGTH]);
+				pr_info("buffer :0x%2x, addr :%d\n",
+					read_buffer[i], i);
+				return ISC_VALIDATION_ERROR;
+			}
+		pr_info("%dKB ", k/4);
+		k++;
+		start_addr = 256 * k / CLENGTH;
+
+	}
+	return ISC_SUCCESS;
+}
+
+int mass_erase(struct mms_ts_info *info)
+{
+	int i = 0;
+	const unsigned char mass_erase_cmd[MFS_HEADER_] = \
+				{ ISC_CMD_ISC_ADDR, 0, 0xC1, 0, 0 };
+	unsigned char read_buffer[4] = { 0, };
+
+	pr_info("<MELFAS> mass erase start\n\n");
+
+	mdelay(5);
+	if (MFS_I2C_write(info, mass_erase_cmd, MFS_HEADER_))
+		return ISC_I2C_ERROR;
+	mdelay(5);
+
+	while (read_buffer[2] != ISC_STATUS_RET_MASS_ERASE_DONE) {
+		if (MFS_I2C_read_with_addr(info, read_buffer, \
+			ISC_CMD_ISC_STATUS_ADDR, 4))
+			return ISC_I2C_ERROR;
+
+		if (read_buffer[2] == ISC_STATUS_RET_MASS_ERASE_DONE) {
+			pr_info("<MELFAS> Firmware Mass Erase done.\n");
+			return ISC_SUCCESS;
+		} else if (read_buffer[2] == ISC_STATUS_RET_MASS_ERASE_MODE)
+			pr_info("<MELFAS> Firmware Mass Erase enter success!!!\n");
+
+		mdelay(1);
+		if (i > 20)
+			return ISC_SLAVE_ERASE_ERROR;
+		i++;
+	}
+	return ISC_SUCCESS;
+}
+
+int mms100_ISC_download_mbinary(struct mms_ts_info *info)
+{
+	struct i2c_client *_client = info->client;
+	int ret_msg = ISC_NONE;
+
+	pr_info("[TSP ISC] %s\n", __func__);
+
+	mms100_reset(info);
+
+	ret_msg = mass_erase(info);
+	if (ret_msg != ISC_SUCCESS)
+		goto ISC_ERROR_HANDLE;
+
+	mms100_reset(info);
+	reset_mms_ts(info);
+
+	ret_msg = firmware_write(info, MELFAS_binary);
+	if (ret_msg != ISC_SUCCESS)
+		goto ISC_ERROR_HANDLE;
+
+	ret_msg = firmware_verify(info, MELFAS_binary);
+	if (ret_msg != ISC_SUCCESS)
+		goto ISC_ERROR_HANDLE;
+
+	pr_info("[TSP ISC]Verify Section end");
+
+	pr_info("[TSP ISC]FIRMWARE_UPDATE_FINISHED!!!\n");
+
+	ret_msg = ISC_SUCCESS;
+
+ISC_ERROR_HANDLE:
+	if (ret_msg != ISC_SUCCESS)
+		pr_info("[TSP ISC]ISC_ERROR_CODE: %d\n", ret_msg);
+
+	mms100_reset(info);
+	mms100_close_mbinary();
+
+	return ret_msg;
+}
+
 static int mms_ts_fw_load(struct mms_ts_info *info)
 {
+
 	struct i2c_client *client = info->client;
-	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
+	/*struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);*/
 	int ret = 0;
-	int ver, module_rev;
-	int retries = 3;
+	int ver, hw_rev;
+	/*int retries = 3;*/
 
 	ver = get_fw_version(info);
 	info->fw_ic_ver = ver;
 		dev_info(&client->dev,
 			 "[TSP]fw version 0x%02x !!!!\n", ver);
 
-	if (ver < 0) {
-		ver = 0;
-		dev_err(&client->dev,
-			"can't read version,controller dead? FW update!\n");
-	}
-
-	module_rev = get_hw_version(info);
+	hw_rev = get_hw_version(info);
 	dev_info(&client->dev,
-		 "[TSP]MODULE revision 0x%02x !!!!\n", module_rev);
+		"[TSP]hw rev = 0x%02x\n", hw_rev);
 
-	if (module_rev < 0) {
-		module_rev = 0;
+	if (ver < 0 || hw_rev < 0) {
+		ret = 1;
 		dev_err(&client->dev,
-			"can't read revision,controller dead?\n");
-		goto out;
+			"i2c fail...tsp driver unload.\n");
 	}
 
 	if (!info->pdata || !info->pdata->mux_fw_flash) {
@@ -1296,67 +1465,34 @@ static int mms_ts_fw_load(struct mms_ts_info *info)
 		goto out;
 	}
 
-	if (module_rev == 0x10 && info->pdata->check_module_type) {
-		dev_info(&client->dev,
-			"fw version update does not need - old module\n");
+	dev_err(&client->dev,
+		"[TSP] ISC Ver [0x%02x] [0x%02x] [0x%02x]",
+		i2c_smbus_read_byte_data(info->client, 0xF3),
+		i2c_smbus_read_byte_data(info->client, 0xF4),
+		i2c_smbus_read_byte_data(info->client, 0xF5));
+
+	if (ver >= FW_VERSION && ver != 0xFF
+			&& ver != 0x00) {
+		dev_err(&client->dev,
+			"[TSP] fw is latest. Do not update.");
 		goto done;
+	} else {
+		dev_err(&client->dev,
+			"[TSP] fw update [0x%02x -> 0x%02x]",
+			ver, FW_VERSION);
 	}
 
-	if (machine_is_JASPER() && (system_rev < 0x4)) {
-		dev_info(&client->dev,
-			"fw update does not need - old module(3key)\n");
+	ret = mms100_ISC_download_mbinary(info);
+
+	if (ret == 0) {
+		dev_err(&client->dev,
+			"[TSP] mms100_ISC_download_mbinary success");
 		goto done;
+	} else {
+		dev_err(&client->dev,
+			"[TSP] mms100_ISC_download_mbinary fail [%d]", ret);
+		ret = 1;
 	}
-
-	if (ver >= FW_VERSION) {
-		dev_info(&client->dev,
-			"fw version update does not need\n");
-		goto done;
-	}
-
-	while (retries--) {
-		i2c_lock_adapter(adapter);
-		info->pdata->mux_fw_flash(true);
-
-		if (machine_is_JASPER() && (module_rev == 0x1)) {
-			ret = fw_download(info, OFILM_binary,
-					MELFAS_binary_nLength);
-		} else if (machine_is_JASPER() && (module_rev == 0x32)) {
-			ret = fw_download(info, OFILM_binary,
-					MELFAS_binary_nLength);
-		} else if (machine_is_JASPER() && (module_rev == 0x2)) {
-			ret = fw_download(info, MELFAS_binary,
-					MELFAS_binary_nLength);
-		} else if (machine_is_GOGH()) {
-			ret = fw_download(info, MELFAS_binary,
-					MELFAS_binary_nLength);
-		} else {
-			goto done;
-		}
-
-		info->pdata->mux_fw_flash(false);
-		i2c_unlock_adapter(adapter);
-
-		if (ret < 0) {
-			dev_err(&client->dev, "retrying flashing\n");
-			continue;
-		}
-
-		ver = get_fw_version(info);
-		info->fw_ic_ver = ver;
-
-		if (ver == FW_VERSION) {
-			dev_info(&client->dev,
-				"fw update done. ver = 0x%02x\n", ver);
-			goto done;
-		} else {
-			dev_err(&client->dev,
-				"ERROR: fw update succeeded, but fw version is still wrong (0x%x != 0x%x)\n",
-				ver, FW_VERSION);
-		}
-		dev_err(&client->dev, "retrying flashing\n");
-	}
-
 out:
 	return ret;
 
@@ -1389,28 +1525,33 @@ static void get_raw_data_all(struct mms_ts_info *info, u8 cmd)
 {
 	u8 w_buf[6];
 	u8 read_buffer[2]; /* 52 */
-	char buff[TSP_CMD_STR_LEN] = {0};
 	int gpio;
 	int ret;
-	int i, j;
-	u32 max_value, min_value;
-	u32 raw_data;
-	int tx_diff = 0;
-	if (machine_is_JASPER())
-		tx_diff = 1;
+	int i, j, Keynum;
+	u16 max_value, min_value;
+	int16_t raw_data;
+	int tx_diff = 1;
+	char buff[TSP_CMD_STR_LEN] = {0};
 
 	gpio = msm_irq_to_gpio(info->irq);
 	disable_irq(info->irq);
 
-	w_buf[0] = MMS_VSC_CMD;		/* vendor specific command id */
-	w_buf[1] = MMS_VSC_MODE;	/* mode of vendor */
+	w_buf[0] = UNIVERSAL_CMD;		/* vendor specific command id */
+	w_buf[1] = 0;	/* mode of vendor */
 	w_buf[2] = 0;			/* tx line */
 	w_buf[3] = 0;			/* rx line */
 	w_buf[4] = 0;			/* reserved */
 	w_buf[5] = 0;			/* sub command */
 
-	if (cmd == MMS_VSC_CMD_EXIT) {
-		w_buf[5] = MMS_VSC_CMD_EXIT; /* exit test mode */
+	if (cmd != UNIVCMD_EXIT_TEST_MODE && cmd != UNIVCMD_TEST_CM_ABS &&
+		cmd != UNIVCMD_TEST_CM_DELTA && cmd != MMS_VSC_CMD_INTENSITY) {
+		dev_err(&info->client->dev, "%s: not profer command(cmd=%d)\n",
+				__func__, cmd);
+		return FAIL;
+	}
+
+	if (cmd == UNIVCMD_EXIT_TEST_MODE) {
+		w_buf[5] = UNIVCMD_EXIT_TEST_MODE; /* exit test mode */
 
 		ret = i2c_smbus_write_i2c_block_data(info->client,
 			w_buf[0], 5, &w_buf[1]);
@@ -1430,11 +1571,11 @@ static void get_raw_data_all(struct mms_ts_info *info, u8 cmd)
 	 * this two mode need to enter the test mode
 	 * exit command must be followed by testing.
 	 */
-	if (cmd == MMS_VSC_CMD_CM_DELTA || cmd == MMS_VSC_CMD_CM_ABS) {
+	if (cmd == UNIVCMD_TEST_CM_ABS || cmd == UNIVCMD_TEST_CM_DELTA) {
 		/* enter the debug mode */
 		w_buf[2] = 0x0; /* tx */
 		w_buf[3] = 0x0; /* rx */
-		w_buf[5] = MMS_VSC_CMD_ENTER;
+		w_buf[5] = UNIVCMD_ENTER_TEST_MODE;
 
 		ret = i2c_smbus_write_i2c_block_data(info->client,
 			w_buf[0], 5, &w_buf[1]);
@@ -1444,32 +1585,42 @@ static void get_raw_data_all(struct mms_ts_info *info, u8 cmd)
 		/* wating for the interrupt */
 		while (gpio_get_value(gpio))
 			udelay(100);
-	}
+		}
 
 	max_value = 0;
 	min_value = 0;
 
 	for (i = 0; i < RX_NUM; i++) {
 		for (j = 0; j < (TX_NUM - tx_diff); j++) {
+			if (cmd == UNIVCMD_TEST_CM_ABS)
+				w_buf[1] = UNIVCMD_GET_PIXEL_CM_ABS;
+			else if (cmd == UNIVCMD_TEST_CM_DELTA)
+				w_buf[1] = UNIVCMD_GET_PIXEL_CM_DELTA;
+			else
+				w_buf[1] = cmd;
 
-			w_buf[2] = j; /* tx */
-			w_buf[3] = i; /* rx */
-			w_buf[5] = cmd;
+		w_buf[2] = j; /* tx */
+		w_buf[3] = i; /* rx */
 
-			ret = i2c_smbus_write_i2c_block_data(info->client,
-					w_buf[0], 5, &w_buf[1]);
-			if (ret < 0)
+			if ((i2c_smbus_write_i2c_block_data
+				(info->client, w_buf[0], 3, &w_buf[1])) < 0)
 				goto err_i2c;
 
+			/*while (gpio_get_value(gpio))
+				udelay(100);*/
 			usleep_range(1, 5);
-
-			ret = i2c_smbus_read_i2c_block_data(info->client, 0xBF,
-					2, read_buffer);
-			if (ret < 0)
+			if ((i2c_smbus_read_i2c_block_data(info->client,
+				UNIVERSAL_CMD_RESULT_SIZE,
+				1, read_buffer)) <= 0)
 				goto err_i2c;
 
-			raw_data = ((u16)read_buffer[1] << 8) | read_buffer[0];
+			if ((i2c_smbus_read_i2c_block_data(info->client,
+				UNIVERSAL_CMD_RESULT,
+				read_buffer[0], read_buffer)) <= 0)
+				goto err_i2c;
 
+			raw_data = (int16_t) (read_buffer[0] |
+						(read_buffer[1] << 8));
 			if (i == 0 && j == 0) {
 				max_value = min_value = raw_data;
 			} else {
@@ -1481,19 +1632,14 @@ static void get_raw_data_all(struct mms_ts_info *info, u8 cmd)
 				info->intensity[j * RX_NUM + i] = raw_data;
 				dev_dbg(&info->client->dev, "[TSP] intensity[%d][%d] = %d\n",
 					i, j, info->intensity[j * RX_NUM + i]);
-			} else if (cmd == MMS_VSC_CMD_CM_DELTA) {
+			} else if (cmd == UNIVCMD_TEST_CM_DELTA) {
 				info->inspection[j * RX_NUM + i] = raw_data;
 				dev_dbg(&info->client->dev, "[TSP] delta[%d][%d] = %d\n",
 					i, j, info->inspection[j * RX_NUM + i]);
-			} else if (cmd == MMS_VSC_CMD_CM_ABS) {
+			} else if (cmd == UNIVCMD_TEST_CM_ABS) {
 				info->raw[j * RX_NUM + i] = raw_data;
 				dev_dbg(&info->client->dev, "[TSP] raw[%d][%d] = %d\n",
 					i, j, info->raw[j * RX_NUM + i]);
-			} else if (cmd == MMS_VSC_CMD_REFER) {
-				info->reference[j * RX_NUM + i] =
-						raw_data >> 3;
-				dev_dbg(&info->client->dev, "[TSP] reference[%d][%d] = %d\n",
-					i, j, info->reference[j * RX_NUM + i]);
 			}
 		}
 	}
@@ -1502,6 +1648,8 @@ static void get_raw_data_all(struct mms_ts_info *info, u8 cmd)
 	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
 
 	enable_irq(info->irq);
+
+	return ;
 
 err_i2c:
 	dev_err(&info->client->dev, "%s: fail to i2c (cmd=%d)\n",
@@ -1525,8 +1673,7 @@ static u32 get_raw_data_one(struct mms_ts_info *info, u16 rx_idx, u16 tx_idx,
 	w_buf[5] = 0;			/* sub command */
 
 	if (cmd != MMS_VSC_CMD_INTENSITY && cmd != MMS_VSC_CMD_RAW &&
-		cmd != MMS_VSC_CMD_REFER && cmd != VSC_INTENSITY_TK &&
-		cmd != VSC_RAW_TK) {
+		cmd != VSC_INTENSITY_TK && cmd != VSC_RAW_TK) {
 		dev_err(&info->client->dev, "%s: not profer command(cmd=%d)\n",
 				__func__, cmd);
 		return FAIL;
@@ -1547,8 +1694,6 @@ static u32 get_raw_data_one(struct mms_ts_info *info, u16 rx_idx, u16 tx_idx,
 		goto err_i2c;
 
 	raw_data = ((u16)read_buffer[1] << 8) | read_buffer[0];
-	if (cmd == MMS_VSC_CMD_REFER)
-		raw_data = raw_data >> 4;
 
 	return raw_data;
 
@@ -1905,30 +2050,6 @@ static void get_chip_name(void *device_data)
 			buff, strnlen(buff, sizeof(buff)));
 }
 
-static void get_reference(void *device_data)
-{
-	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
-
-	char buff[16] = {0};
-	unsigned int val;
-	int node;
-
-	set_default_result(info);
-	node = check_rx_tx_num(info);
-
-	if (node < 0)
-		return ;
-
-	val = info->reference[node];
-	snprintf(buff, sizeof(buff), "%u", val);
-	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
-
-	info->cmd_state = 2;
-
-	dev_info(&info->client->dev, "%s: %s(%d)\n", __func__,
-			buff, strnlen(buff, sizeof(buff)));
-}
-
 static void get_cm_abs(void *device_data)
 {
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
@@ -2052,24 +2173,13 @@ static void get_y_num(void *device_data)
 			strnlen(buff, sizeof(buff)));
 }
 
-static void run_reference_read(void *device_data)
-{
-	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
-
-	set_default_result(info);
-	get_raw_data_all(info, MMS_VSC_CMD_REFER);
-	info->cmd_state = 2;
-
-	dev_info(&info->client->dev, "%s:\n", __func__);
-}
-
 static void run_cm_abs_read(void *device_data)
 {
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
 
 	set_default_result(info);
-	get_raw_data_all(info, MMS_VSC_CMD_CM_ABS);
-	get_raw_data_all(info, MMS_VSC_CMD_EXIT);
+	get_raw_data_all(info, UNIVCMD_TEST_CM_ABS);
+	get_raw_data_all(info, UNIVCMD_EXIT_TEST_MODE);
 	info->cmd_state = 2;
 
 	dev_info(&info->client->dev, "%s\n", __func__);
@@ -2080,8 +2190,8 @@ static void run_cm_delta_read(void *device_data)
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
 
 	set_default_result(info);
-	get_raw_data_all(info, MMS_VSC_CMD_CM_DELTA);
-	get_raw_data_all(info, MMS_VSC_CMD_EXIT);
+	get_raw_data_all(info, UNIVCMD_TEST_CM_DELTA);
+	get_raw_data_all(info, UNIVCMD_EXIT_TEST_MODE);
 	info->cmd_state = 2;
 
 	dev_info(&info->client->dev, "%s\n", __func__);
@@ -2526,7 +2636,7 @@ static int mms_ts_resume(struct device *dev)
 	dev_notice(&info->client->dev, "%s: users=%d\n", __func__,
 			info->input_dev->users);
 	info->pdata->vdd_on(1);
-	msleep(120);
+	msleep(50);
 	mms_set_noise_mode(info);
 	mutex_lock(&info->input_dev->mutex);
 	if (info->input_dev->users)

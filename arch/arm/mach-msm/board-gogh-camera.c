@@ -601,7 +601,7 @@ static void cam_ldo_power_on(int mode)
 	usleep(1000);
 
 /*Sensor IO 1.8V -CAM_SENSOR_IO_1P8  */
-	if (system_rev >= BOARD_REV02) {
+	if (system_rev >= BOARD_REV00) {
 		gpio_set_value_cansleep(GPIO_CAM_SENSOR_IO_EN, 1);
 		ret = gpio_get_value(GPIO_CAM_SENSOR_IO_EN);
 		printk(KERN_DEBUG "check CAM_SENSOR_IO_EN : %d\n", ret);

@@ -312,7 +312,7 @@ obj-$(CONFIG_MACH_M2_VZW)   += board-m2_vzw.o board-m2_vzw-gpiomux.o
 obj-$(CONFIG_MACH_APEXQ)    += board-mms-tsp.o board-apexq.o board-apexq-gpiomux.o board-apexq-battery.o board-8960-regulator.o board-8960-storage.o
 obj-$(CONFIG_MACH_APEXQ)    += board-apexq-camera.o board-m2-display.o board-m2-pmic.o
 obj-$(CONFIG_MACH_GOGH)     += board-gogh-tsp.o board-gogh.o board-gogh-gpiomux.o board-8960-regulator.o board-8960-storage.o
-obj-$(CONFIG_MACH_GOGH)     += board-gogh-camera.o board-gogh-display.o board-8960-pmic.o
+obj-$(CONFIG_MACH_GOGH)     += board-gogh-camera.o board-m2-display.o board-8960-pmic.o
 
 obj-$(CONFIG_MACH_LGE) += lge/
 

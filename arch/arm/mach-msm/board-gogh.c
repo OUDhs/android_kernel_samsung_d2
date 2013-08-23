@@ -400,7 +400,7 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_device = {
+static struct platform_device msm8960_android_pmem_device = {
 	.name = "android_pmem",
 	.id = 0,
 	.dev = {.platform_data = &android_pmem_pdata},
@@ -412,7 +412,7 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.cached = 0,
 	.memory_type = MEMTYPE_EBI1,
 };
-static struct platform_device android_pmem_adsp_device = {
+static struct platform_device msm8960_android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
@@ -425,13 +425,13 @@ static struct android_pmem_platform_data android_pmem_audio_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct platform_device android_pmem_audio_device = {
+static struct platform_device msm8960_android_pmem_audio_device = {
 	.name = "android_pmem",
 	.id = 4,
 	.dev = { .platform_data = &android_pmem_audio_pdata },
 };
-#endif
-#endif
+#endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
+#endif /*CONFIG_ANDROID_PMEM*/
 
 struct fmem_platform_data msm8960_fmem_pdata = {
 };
@@ -2233,61 +2233,6 @@ static void bmp180_power_on(int onoff)
 {
 	sensor_power_on_vdd(SNS_PWR_KEEP, onoff);
 }
-#endif
-
-#if defined(CONFIG_OPTICAL_GP2AP020A00F)
-static void gp2a_power_on(int onoff)
-{
-	if (system_rev >= BOARD_REV01) {
-		gpio_set_value(gpio_rev(PS_EN), onoff ? 1 : 0);
-		sensor_power_on_vdd(SNS_PWR_KEEP, onoff);
-	}
-}
-#endif
-
-#if defined(CONFIG_OPTICAL_GP2A) || defined(CONFIG_OPTICAL_GP2AP020A00F)
-static void gp2a_led_onoff(int onoff)
-{
-	static struct regulator *reg_8921_leda;
-	static int prev_on;
-	int rc;
-
-	if (system_rev < BOARD_REV01) {
-		gpio_set_value(GPIO_PS_EN, onoff ? 1 : 0);
-	} else {
-		if (onoff == prev_on)
-			return;
-
-		if (!reg_8921_leda) {
-			reg_8921_leda = regulator_get(NULL, "8921_l16");
-			rc = regulator_set_voltage(reg_8921_leda,
-				3000000, 3000000);
-			if (rc)
-				pr_err("%s: error reg_8921_leda setting  ret=%d\n",
-					__func__, rc);
-		}
-
-		if (onoff) {
-			rc = regulator_enable(reg_8921_leda);
-			if (rc) {
-				pr_err("'%s' regulator enable failed, rc=%d\n",
-					"reg_8921_leda", rc);
-				return;
-			}
-			pr_debug("%s(on): success\n", __func__);
-		} else {
-			rc = regulator_disable(reg_8921_leda);
-			if (rc) {
-				pr_err("'%s' regulator disable failed, rc=%d\n",
-					"reg_8921_leda", rc);
-				return;
-			}
-			pr_debug("%s(off): success\n", __func__);
-		}
-		prev_on = onoff;
-	}
-}
-
 #endif
 
 #ifdef CONFIG_VP_A2220
@@ -4901,4 +4846,3 @@ MACHINE_START(GOGH, "SAMSUNG GOGH")
 	.init_very_early = msm8960_early_memory,
 	.restart = msm_restart,
 MACHINE_END
-
