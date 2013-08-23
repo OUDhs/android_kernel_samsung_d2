@@ -12,9 +12,10 @@
  * GNU General Public License for more details.
  *
  */
-
-#if defined(CONFIG_MACH_GOGH) || defined(CONFIG_MACH_INFINITE)
-#include "a2220_firmware_gogh.h"
+#if defined(CONFIG_MACH_GOGH)
+#include "a2220_firmware_gogh_spr.h"
+#elif defined(CONFIG_MACH_INFINITE)
+#include "a2220_firmware_infinite.h"
 #elif defined(CONFIG_MACH_COMANCHE)
 #include "a2220_firmware_comanche.h"
 #elif defined(CONFIG_MACH_EXPRESS)

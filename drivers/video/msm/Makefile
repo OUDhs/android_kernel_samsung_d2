@@ -16,6 +16,7 @@ obj-$(CONFIG_DEBUG_FS) += mdp_debugfs.o
 ifeq ($(CONFIG_FB_MSM_MDP40),y)
 obj-y += mdp4_util.o
 obj-$(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_CMD_QHD_PT) += mdp4_video_enhance.o
+obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_BOE_CMD_WVGA_PT) += mdp4_video_enhance.o
 obj-$(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_WVGA_PT) += mdp4_video_enhance.o
 obj-$(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_HD_PT) += mdp4_video_enhance.o
 obj-$(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT) += mdp4_video_enhance.o
@@ -143,6 +144,8 @@ else
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT) += mipi_toshiba_video_wvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT) += mipi_toshiba_video_wsvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WUXGA) += mipi_toshiba_video_wuxga.o
+obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_CMD_WVGA_PT) += mipi_novatek_cmd_wvga_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_BOE_CMD_WVGA_PT) += mipi_novatek_boe_hydis_cmd_wvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_QHD_PT) += mipi_novatek_video_qhd_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_ORISE_VIDEO_720P_PT) += mipi_orise_video_720p_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_ORISE_CMD_720P_PT) += mipi_orise_cmd_720p_pt.o

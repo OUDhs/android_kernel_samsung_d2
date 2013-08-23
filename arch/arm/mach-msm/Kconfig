@@ -950,6 +950,15 @@ config MACH_APEXQ
         bool "MSM8960 Samsung ApexQ"
         help
           Support for Samsung ApexQ device.
+          
+config MACH_GOGH
+        depends on ARCH_MSM8960
+        default n
+        bool "MSM8960 Samsung Goghspr"
+        help
+          Support for the Samsung Goghspr(Sprint)
+          
+                    
 endmenu
 
 source "arch/arm/mach-msm/lge/Kconfig"
