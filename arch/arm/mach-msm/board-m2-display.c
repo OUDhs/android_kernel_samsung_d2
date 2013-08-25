@@ -127,8 +127,6 @@ static struct platform_device samsung_mipi_esd_refresh_device = {
 #define MSM_FB_PRIM_BUF_SIZE (544 * 960 * 4 * 3)
 #elif defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_HD_PT_PANEL)
 #define MSM_FB_PRIM_BUF_SIZE (1280 * 736 * 4 * 3)
-#elif defined FB_MSM_MIPI_NOVATEK_BOE_CMD_WVGA_PT)
-#define MSM_FB_PRIM_BUF_SIZE (480 * 800 * 4 * 3)
 #else
 #define MSM_FB_PRIM_BUF_SIZE (480 * 800 * 4 * 3)
 #endif
@@ -150,9 +148,6 @@ static struct platform_device samsung_mipi_esd_refresh_device = {
 #endif
 
 #if defined(CONFIG_FB_MSM_MIPI_DSI)
-#if defined(CONFIG_MSM_MIPI_NOVATEK_BOE_CMD_WVGA_PT_PANEL)
-/* 480 x 800 x 3 x 2 */
-#define MIPI_DSI_WRITEBACK_SIZE (480 * 800 * 3 * 2)
 #if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_WVGA_PT_PANEL)
 /* 480 x 800 x 3 x 2 */
 #define MIPI_DSI_WRITEBACK_SIZE (480 * 800 * 3 * 2)
@@ -177,8 +172,6 @@ static struct platform_device samsung_mipi_esd_refresh_device = {
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE, 4096)
 
 #ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
-#if defined(CONFIG_MSM_MIPI_NOVATEK_BOE_CMD_WVGA_PT_PANEL)
-#define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((480 * 800 * 3 * 2), 4096)
 #if defined(CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_WVGA_PT_PANEL)
 #define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((480 * 800 * 3 * 2), 4096)
 #elif defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT_PANEL)
@@ -272,12 +265,6 @@ static int msm_fb_detect_panel(const char *name)
 				strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
 					PANEL_NAME_MAX_LEN)))
 			return 0;
-
-		if (!strncmp(name, MIPI_VIDEO_NOVATEK_WXGA_PANEL_NAME,
-			strnlen(MIPI_VIDEO_NOVATEK_WXGA_PANEL_NAME,
-				PANEL_NAME_MAX_LEN)))
-			return 0;
-
 
 		if (!strncmp(name, MIPI_CMD_NOVATEK_WVGA_PANEL_NAME,
 				strnlen(MIPI_CMD_NOVATEK_WVGA_PANEL_NAME,

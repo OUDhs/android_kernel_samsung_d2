@@ -51,6 +51,7 @@ extern struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata;
 /* GPIO SX150X */
 #if defined(CONFIG_TOUCHSCREEN_MMS144) || \
 	defined(CONFIG_TOUCHSCREEN_MMS136) || \
+	defined(CONFIG_TOUCHSCREEN_MMS136S) || \
 	defined(CONFIG_TOUCHSCREEN_MMS136_TABLET)
 extern void __init mms_tsp_input_init(void);
 #endif

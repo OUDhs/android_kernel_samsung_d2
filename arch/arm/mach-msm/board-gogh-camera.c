@@ -31,6 +31,8 @@
 #include <linux/spi/spi.h>
 
 extern unsigned int system_rev;
+#if (defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)) && \
+	defined(CONFIG_I2C)
 
 static struct i2c_board_info cam_expander_i2c_info[] = {
 	{
@@ -44,6 +46,7 @@ static struct msm_cam_expander_info cam_expander_info[] = {
 		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
 	},
 };
+#endif
 
 static struct gpiomux_setting cam_settings[] = {
 	{

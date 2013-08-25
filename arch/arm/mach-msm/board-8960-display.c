@@ -58,6 +58,7 @@
 #define MDP_VSYNC_GPIO 0
 
 #define MIPI_CMD_NOVATEK_QHD_PANEL_NAME	"mipi_cmd_novatek_qhd"
+#define MIPI_CMD_NOVATEK_WVGA_PANEL_NAME	"mipi_cmd_novatek_wvga"
 #define MIPI_VIDEO_NOVATEK_QHD_PANEL_NAME	"mipi_video_novatek_qhd"
 #define MIPI_VIDEO_TOSHIBA_WSVGA_PANEL_NAME	"mipi_video_toshiba_wsvga"
 #define MIPI_VIDEO_TOSHIBA_WUXGA_PANEL_NAME	"mipi_video_toshiba_wuxga"
@@ -121,6 +122,11 @@ static int msm_fb_detect_panel(const char *name)
 
 		if (!strncmp(name, MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
 				strnlen(MIPI_CMD_NOVATEK_QHD_PANEL_NAME,
+					PANEL_NAME_MAX_LEN)))
+			return 0;
+
+		if (!strncmp(name, MIPI_CMD_NOVATEK_WVGA_PANEL_NAME,
+				strnlen(MIPI_CMD_NOVATEK_WVGA_PANEL_NAME,
 					PANEL_NAME_MAX_LEN)))
 			return 0;
 
